@@ -77,7 +77,7 @@ a <- data.frame(matched$match.matrix)
 case$subclass <- rownames(case)
 control <- control[a[!is.na(a)],]
 control$subclass <- which(!is.na(a))
-??optmatch
+
 ##duration, is_Case, in_event  
 total <- rbind(case,control) %>%
   mutate(index_date = as.Date(index_date, format="%Y-%m-%d"), censored_day = as.Date(end_date, format="%Y-%m-%d")) %>%
@@ -86,6 +86,7 @@ total <- rbind(case,control) %>%
   rename("is_case"="ros")
 str(total)
 total[,c("end_date")] <- NULL
+
 #demographic
 ##n수
 nrow(total[total$is_case == 1,]) #5333
@@ -104,7 +105,7 @@ var<-l1[-4]
 group_var = "is_case"
 categorical_table = cat_table(var, group_var, total)
 categorical_table$demo_table 
-?cat_table
+
 ## numeric 
 var = "QT"
 group_var = "is_case"
@@ -128,6 +129,7 @@ mm.deaths<-sum (ros$is_event==1)#48-30(ros), 18(ator)
 per.time<-sum((ros$duration)/365)#26015.75-> 12104.46(ros), 13911.29(ato)
 mortality.rate<-mm.deaths/per.time
 round(100*mortality.rate,1) # 0.2  0.2case per 100py(ros), 0.1(ato) 
+
 #survival packages
 str(total)
 total<-total %>% mutate(duration_year = duration/365)
@@ -157,28 +159,30 @@ plot(KM.object.ros, col=c("black","red"), fun="cloglog")
 l1<-colnames(total)
 l1<- l1[c(3,5,6,14,20,21,22)]
 total_cox <- total %>% mutate_each_(funs(as.numeric), l1)
-#cox
+#cox-로수바스타틴만의 HR
 out1=coxph(Surv(duration_year, is_event==1)~is_case, data=total_cox)
 out1
-##
+##COX-다른 변수들도 포함. 
 out2= coxph(TS ~.-is_event-PERSON_ID-index_date-distance-subclass-censored_day-duration-duration_year, data = total_cox)
 final=step(out2,direction="backward")
 summary(final)
 HRplot(final,type=3, show.CI=T,main="final model selected by backward elimination")
-#
+
+#COX-간략히 
 cox.object<- coxph(Surv(duration_year, is_event==1) ~ is_case + sex +  QT  + over75 + risk_qt + benefit + chronic, data = total_cox )
 summary(cox.object)
 str(total_cox)
 HRplot(cox.object, show.CI = T, main="Cox model with all variables")
-#stratify-sex
+
+
+#층화 stratify-sex
 fit<- coxph(Surv(duration_year, is_event==1) ~ is_case + strata(sex), data = total_cox )
 summary(fit)
 fit2<- coxph(Surv(duration_year, is_event==1) ~ is_case + strata(chronic), data = total_cox )
 summary(fit2)
 ## Seperate models for female and male , over 75, risk_qt, beneift, chronic
-total <- total %>%  mutate_each_(funs(as.numeric),c("benefit","chronic"))
-survobj<-Surv(total$duration_year, total$is_event==1)
-##factor-> numeric
+
+## benefirc, chronic ; factor-> numeric
 total$benefit1<- cut(total$benefit, breaks=c(1,3, 6),
                                       include.lowest=T,
                                       right=F, labels=c("medium","high"))
