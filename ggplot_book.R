@@ -158,15 +158,27 @@ gapminder %>% filter (year==2007) %>% ggplot(aes(gdpPercap, lifeExp)) + geom_poi
 gapminder %>% ggplot(aes(year, lifeExp, group=country, col=continent))+ geom_line() + facet_wrap(~continent)                                  
 ?facet_wrap
 
-#시각화 과정 유용한 규칙
-#glimpse()함수로 데이터 구조 파악, 행, 변수 타입
-#pairs() 산점도 행렬로 큰 그림을 본다. 이상한 점이나 흥미로운점이 없는지 살펴본다. 
-#sample_n() 행의 수가 크면 랜덤으로 표본화 
-#수량형 변수:히스토그램,geom_histogram(), 변수형 변수:막대그래프,geom_bar()
-#두 변수간의 상관관계: geom_boxplot, geom_point()
-#고차원의 관계 연구 제 3,4 변수는 geom_* 속성 추가, 많지 않은 경우엔 facet_wrap()함수 이용. 
-#의미있는 변수명 사용 : xlab(), ylab(),labs()
-#제목 추가:ggtitle()
-#small multiple: 동시에 여러개 표 보여주기. facet_wrap(), facet_grid()함수: 함수 안의 좌/우 변수를 각각 행/열로 나눠 2차원으로 sub그래프를 그려준다. 
-# 모든 데이터를 반드시 시각화
-#dplyr능숙히 사용. 
+# 좌표축 그리기 (axis)
+axis(): outer margin 이나 plot margin에 좌표축을 그리는 함수 
+side: 좌표축 그릴 위치/ line:좌표축 그릴 라인 위치
+at: 기준점 정의 /lty:선의 종류, lwd:선의 굵기
+#default par value
+op<-par(no.readonly=TRUE)
+#change par() function 
+par(mfrow=c(2,2))
+#X,Y축을 삭제: axes=FALSE
+plot(MPG.highway ~ Weight, Cars93,axes=FALSE, main="axes=FALSE")
+#X축 삭제: xaxt="n"
+plot(MPG.highway ~ Weight, Cars93,xaxt="n")
+#y축 삭제: yaxt="n"
+plot(MPG.highway ~ Weight, Cars93,yaxt="n")
+# x축 1600-4200범위로 100씩 증가, y축 18~52로 2씩 증가
+plot(MPG.highway ~Weight, Cars93, axes=FALSE,
+     xlim=c(1600, 4200),
+     ylim=c(18,52),
+     main="scatter plot of weight and MPG.highway")
+x<-seq(1600,4200, by=100)
+y<-seq(18,52, by=2)
+#bottom side, x축 범위 새로 설정, 축 눈금에 라벨, pos:해당축이 다른 축과 교차하는 좌표(숫자가 클수록위로 올라감), tck:눈금의 방향과 길이 설정(양수: 안쪽, 음수 : 바깥쪽), 
+#axis(side=1, at=x, labels=T, pos=18, tck=-0.01)
+axis(side=2, at=y, labels=T, pos=1600, tck=-0.02)
