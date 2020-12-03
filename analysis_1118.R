@@ -31,59 +31,65 @@ str(cci)
 head(cci)
 head(data)
 
-
-#cci, groups 
 C <- data.frame (id= cci$PERSON_ID, code = cci$SICK, stringAsFactors= FALSE)
 print(head(C, n=15), row.names =FALSE )
 
 # comorbidity MATCHING 
-##score 
-## VULNERABLE_QT / benefits  
-## Myocardial infarction(ami) ,cerebrovascular disease(cevd), Renal disease(rend), congestive heart disease(chf)
-
-charlson <- comorbidity(x = C, id = "id", code = "code", score = "charlson", icd = "icd10", assign0 = FALSE)[,c("id", "ami", "rend", "cevd", "chf","score")]
+# charlson 
+charlson <- comorbidity(x = C, id = "id", code = "code", score = "charlson", icd = "icd10", assign0 = FALSE)[,c("id", "ami", "rend", "cevd", "chf","msld","score")]
 str(charlson) 
 
-## Cardiac arrhythmias(carit), Fluid and electrolyte disorders(fed), valvular disea(valv), Hypertension(hypunc, hypc),diabetes mellitus(diabunc, diabc)
-elixhauser <- comorbidity(x = C, id = "id", code = "code", score = "elixhauser", icd = "icd10", assign0 = FALSE)[,c("id", "carit", "valv", "hypunc","hypc","diabunc","diabc", "fed")] %>%
-  mutate(htn = hypunc + hypc, dia= diabunc + diabc)
+## elixhause
+elixhauser <- comorbidity(x = C, id = "id", code = "code", score = "elixhauser", icd = "icd10", assign0 = FALSE)[,c("id", "carit", "valv", "hypunc","hypc","diabunc","diabc", "fed","hypothy","drug","alcohol","aids")] %>% mutate(htn = hypunc + hypc, dia= diabunc + diabc)
 elixhauser[,c("hypunc","hypc","diabunc","diabc")] <- NULL
 str(elixhauser) 
 
+#ischemic, hemorrhage stroke
+isc <-c("I63","G45")
+hem <-c("I60","I61","I62")
+stroke<-cci %>% mutate( isc= ifelse(SICK ==isc, 1,0)) %>% mutate(hem = ifelse(SICK==hem,1,0)) 
+isc<- aggregate(stroke$isc, list(stroke$PERSON_ID), sum) %>% rename(c("PERSON_ID"="Group.1","isc"="x"))
+hem<- aggregate(stroke$hem, list(stroke$PERSON_ID), sum)%>% rename(c("PERSON_ID"="Group.1","hem"="x"))
+str(hem)
 data <- left_join(data, charlson, by = c("PERSON_ID"="id"))
 data <- left_join(data, elixhauser, by = c("PERSON_ID"="id"))
-## vulnerable_qt, benefit_statin, chronic 
-data<-data %>% mutate( risk_qt = carit + fed, benefit= ami + valv + cevd + chf, chronic = rend + htn +dia)
+data <- left_join(data, hem, by="PERSON_ID")
+data <- left_join(data, isc, by="PERSON_ID")
+
+data[, "x"]<-NULL
+str(data)
+remove(list=c("isc","hem","charlson","elixhauser","C","cci"))
+gc()
+
+## 층화: risk, benefit  
+data<-data %>% mutate( risk = carit + fed , benefit= ami + valv + cevd + chf + isc + hem) %>% rename(c("is_case" = "ros", "is_event"="DEATH"))
+
 head(data)
 str(data)
 
 data[is.na(data)] <- 0
-nrow(data[data$ros==1,]) #5333
-nrow(data[data$ros==0,]) # 24723
-##ps matching 
-data %>% group_by(ros) %>% summarise(n_patients = n(), mean=mean(DEATH)
-                                     ,std_error = sd(DEATH)/sqrt(n_patients))
-#nearest: 점수차이 절대값이 가장 작은 순서대로 짝짓기.
-#optimal: 유사한 점수를 가진 대조군, 처치군을 하나의 계층으로 분류, 자료 전반에 걸쳐 층화,
-#전체 표본에 대한 성향점수의 통계적 거리(statistical distance)를 최소화하는 계층을 만들어 통계분석 
+nrow(data[data$is_case==1,]) #5333
+nrow(data[data$is_case==0,]) # 24723
 
-matched <- matchit(ros ~ sex + age_group + QT + QT_SCORE + ami + rend + cevd + chf+ score + carit +valv +fed +htn+ dia ,  method="nearest", data=data, ratio=1)
-##matched2 <- matchit(ros ~ sex + age_group + QT + QT_SCORE + ami + rend + cevd + chf+ score + carit +valv +fed +htn+ dia ,  method="optimal", data=data, ratio=1)
+##ps matching 
+
+with(data,tapply(is_case,is_event, mean)) #case별로 평균 사망은?
+
+matched <- matchit(is_case ~ sex + age_group + QT + QT_SCORE + ami + rend + cevd + chf+ msld + score + carit +valv + htn + dia+ fed + hypothy + drug + alcohol +aids ,  method="nearest", data=data, ratio=1)
 
 case <- match.data(matched, group = 'treat', subclass = "subclass")
+head(case)
 control <- match.data(matched, group = 'control', subclass = "subclass")
-
+str(case$subclass)
 a <- data.frame(matched$match.matrix)
-case$subclass <- rownames(case)
+case$subclass <- rownames(case) #점수별로 
 control <- control[a[!is.na(a)],]
 control$subclass <- which(!is.na(a))
 
-##duration, is_Case, in_event  
 total <- rbind(case,control) %>%
   mutate(index_date = as.Date(index_date, format="%Y-%m-%d"), censored_day = as.Date(end_date, format="%Y-%m-%d")) %>%
   mutate(duration = censored_day - index_date) %>%
-  rename("is_event"="DEATH") %>%
-  rename("is_case"="ros")
+
 str(total)
 total[,c("end_date")] <- NULL
 
@@ -95,6 +101,8 @@ nrow(total[total$is_event == 1,]) #48
 nrow(total[total$is_event == 0,]) #10618
 
 ##category
+#unique값이 3이하인것만 범주형 변수로
+str(data)
 l1<-colnames(total)
 l2<- l1[c(1,2,7,14,23,24,25,26,27,28)]
 l1 <- l1[-c(1,2,7,14,23,24,25,26,27,28)]

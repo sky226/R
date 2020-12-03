@@ -17,6 +17,7 @@ table$column <-1
 
 #컬럼 지우기
 table&column <-NA
+table[,"삭제할 컬럼"] <-NULL
 
 #환자별로 요양개시일이 가장 작은 값 뽑기
 tapply 그룹별 처리를 위한 함수 
